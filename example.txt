@@ -1,0 +1,503 @@
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\companies;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+
+class UserController extends Controller
+{
+    // Method to insert user and company data
+    public function insertData(Request $request)
+    {
+        // Validate request data
+        $validated = $request->validate([
+            'name' => 'required',
+            'email' => 'required|email',
+            'company_name' => 'required',
+        ]);
+
+        try {
+
+            // Check if the user already exists by email
+            $user = User::where('email', $validated['email'])->first();
+
+            // Variable to track if a new user was created
+            $newUserCreated = false;
+
+            if ($user) {
+
+                // Check if the user name matches the provided name
+                if ($user->name !== $validated['name']) {
+                    throw new \Exception('ERROR: Adding New Company for existing user');
+                }
+
+                // Check if the company already exists for this user
+                $existingCompany = companies::where('user_id', $user->id)
+                    ->where('company_name', $validated['company_name'])
+                    ->first();
+
+                if ($existingCompany) {
+                    throw new \Exception('User and company already exist');
+                }
+
+                DB::beginTransaction();
+
+                // Add a new company for the existing user
+                companies::create([
+                    'user_id' => $user->id,
+                    'company_name' => $validated['company_name'],
+                ]);
+            } 
+            
+            else {
+
+                // If user does not exist, create a new user and company
+                $user = User::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                ]);
+
+                $newUserCreated = true;
+
+                companies::create([
+                    'user_id' => $user->id,
+                    'company_name' => $validated['company_name'],
+                ]);
+            }
+
+            // Commit all operations
+            DB::commit();
+
+            // Prepare a success message
+            $message = $newUserCreated
+                ? 'User and company successfully created'
+                : 'New company added for the existing user';
+
+            return response()->json(['status' => true,'message' => $message], 200);
+        } 
+        
+        catch (\Exception $e) {
+
+            DB::rollback();
+
+            \Log::error('Error inserting data: ' . $e->getMessage());
+
+            return response()->json(['status' => false,'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // Method to get all data using INNER JOIN
+    public function getAllData(Request $request)
+    {
+        try {
+            $data = DB::table('users')
+                ->join('companies', 'users.id', '=', 'companies.user_id')
+                ->select('users.name', 'users.email', 'companies.company_name')
+                ->get();
+
+            return response()->json(['status' => true,'message' => 'Data retrieved successfully','data' => $data]);
+        } 
+        
+        catch (\Exception $e) {
+
+
+            \Log::error('Error fetching data: ' . $e->getMessage());
+
+            return response()->json(['status' => false,'message' => 'Unable to retrieve data'], 500);
+        }
+    }
+
+    // Method to get user specific data by POST method
+    public function getSpecificUserData(Request $request)
+    {
+        try {
+            // Validate the request
+            $validated = $request->validate([
+                'email' => 'required|email',
+            ]);
+
+            $email = $validated['email'];
+
+            // Fetch user data
+            $userData = DB::table('users')->where('email', $email)->first();
+
+            if (!$userData) {
+                throw new \Exception('User not found');
+            }
+
+            // Fetch companies associated with the user
+            $companies = DB::table('companies')
+                ->where('user_id', $userData->id)
+                ->pluck('company_name');
+
+            // Fetch previous companies from the companies_log table
+            $previousCompanies = DB::table('companies_log')
+                ->where('user_id', $userData->id)
+                ->pluck('company_name');
+
+
+            // Prepare the response data
+            return response()->json([
+                'status' => true,
+                'message' => 'User data retrieved successfully',
+                'data' => [
+                    'name' => $userData->name,
+                    'user' => $email,
+                    'companies' => $companies,
+                    'previous_companies' => $previousCompanies,
+                ],
+            ]);
+        } 
+        
+        catch (\Exception $e) {
+
+            \Log::error('Error fetching user data: ' . $e->getMessage());
+
+            return response()->json(['status' => false,'message' => 'An error occurred while fetching data'], 500);
+        }
+    }
+
+    // Method to update user and company data
+    public function updateData(Request $request)
+    {
+        // Validate the incoming data manually
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|integer|exists:users,id',
+            'company_id' => 'required|integer|exists:companies,id',
+            'name' => 'required|string',
+            'email' => 'required|email:rfc,dns',
+            'company_name' => 'required|string',
+        ]);
+
+        try {
+            // Handle validation failure
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Validation failed',
+                    'details' => $validator->errors()
+                ], 422);
+            }
+
+            // Fetch the user by ID
+            $user = User::find($request->user_id);
+            if (!$user) {
+                throw new \Exception('User not found');
+            }
+
+            // Fetch the company by ID
+            $company = companies::where('id', $request->company_id)
+                ->where('user_id', $request->user_id)
+                ->first();
+
+            if (!$company) {
+                throw new \Exception('Company not found for the specified user');
+            }
+
+            // Check if all provided data are the same as the existing data
+            if (
+                $user->name === $request->name &&
+                $user->email === $request->email &&
+                $company->company_name === $request->company_name
+            ) {
+                throw new \Exception('Cannot update, data already exist');
+            }
+
+            DB::beginTransaction();
+
+            // Store previous data in history table
+            \DB::table('companies_log')->insert([
+                'user_id' => $user->id,
+                'company_id' => $company->id,
+                'company_name' => $company->company_name,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Update user details
+            $user->update([
+                'name' => $request->name,
+                'email' => $request->email,
+            ]);
+
+            // Update company details
+            $company->update([
+                'company_name' => $request->company_name,
+            ]);
+
+            DB::commit();
+
+            return response()->json(['status' => true,'message' => 'Updated successfully']);
+        } 
+
+        catch (\Exception $e) {
+
+            DB::rollback();
+            \Log::error('Error updating data: ' . $e->getMessage());
+
+            return response()->json(['status' => false,'message' => $e->getMessage(),], 500);
+        }
+    }
+
+    // Method to delete user data by email
+    public function deleteDataByEmail(Request $request)
+    {
+        // Validate request data
+        $validated = $request->validate([
+            'email' => 'required|email|exists:users,email', // Ensure the email exists in the users table
+        ]);
+
+        try {
+            // Find the user by email
+            $user = User::where('email', $validated['email'])->firstOrFail();
+
+            // Find all companies associated with this user
+            $companies = companies::where('user_id', $user->id)->get();
+
+            DB::beginTransaction();
+            // Delete the companies
+            foreach ($companies as $company) {
+                $company->delete();
+            }
+
+            // Delete the user
+            $user->delete();
+
+            // Commit the transaction after all operations
+            DB::commit();
+
+            return response()->json(['status' => true, 'message' => 'User and associated companies deleted successfully']);
+
+        } 
+        
+        catch (\Exception $e) {
+
+            DB::rollback();
+            \Log::error('Error deleting data: ' . $e->getMessage());
+
+            return response()->json(['status' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
+class SwmDemandController extends Controller
+{
+    public function createDemands(Request $request)
+    {
+        // $previousPaymentFrom = '2024-11-01';
+        // $previousPaymentTo = '2024-11-30';
+        // $newPaymentFrom = '2024-12-01';
+        // $newPaymentTo = '2024-12-31';
+        //....................................................................
+        // Validate the request to accept a specific month/year if provided
+        $request->validate([
+                'year' => 'required|integer',
+                'month' => 'required|integer|between:1,12',
+            ]);
+            
+            // Get the year and month from the request
+            $year = $request->input('year');
+            $month = $request->input('month');
+            
+            // Calculate the previous and new payment periods
+            $previousPaymentFrom = Carbon::createFromDate($year, $month, 1)->subMonth()->startOfMonth();
+            $previousPaymentTo = $previousPaymentFrom->copy()->endOfMonth();
+            
+            $newPaymentFrom = $previousPaymentFrom->copy()->addMonth()->startOfMonth();
+            $newPaymentTo = $newPaymentFrom->copy()->endOfMonth();
+            //....................................................................
+
+             // Automatically calculate dates for the previous and current months
+            // $previousPaymentFrom = Carbon::now()->subMonth()->startOfMonth();
+            // $previousPaymentTo = Carbon::now()->subMonth()->endOfMonth();
+            
+            // $newPaymentFrom = Carbon::now()->startOfMonth();
+            // $newPaymentTo = Carbon::now()->endOfMonth();
+            
+        // Get consumer IDs already present in the new period
+        $existingConsumers = DB::table('swm_demands')
+            ->where('payment_from', $newPaymentFrom)
+            ->where('payment_to', $newPaymentTo)
+            ->groupBy('consumer_id')
+            ->pluck('consumer_id');
+
+        // Fetch consumers from the previous period not already in the new period
+        $dataToInsert = DB::table('swm_demands')
+            ->where('payment_from', $previousPaymentFrom)
+            ->where('payment_to', $previousPaymentTo)
+            ->where('is_deactivate', 0)
+            ->when($existingConsumers->isNotEmpty(), function ($query) use ($existingConsumers) {
+                $query->whereNotIn('consumer_id', $existingConsumers);
+            })
+            ->get(['consumer_id', 'total_tax']);
+
+        if ($dataToInsert->isEmpty()) {
+            return response()->json([
+                'message' => 'No data found to create demands.',
+                'data' => []
+            ], 200);
+        }
+
+        // Prepare data for insertion
+        $insertData = $dataToInsert->map(function ($item) use ($newPaymentFrom, $newPaymentTo) {
+            return [
+                'consumer_id' => $item->consumer_id,
+                'total_tax' => $item->total_tax,
+                'payment_from' => $newPaymentFrom,
+                'payment_to' => $newPaymentTo,
+                'paid_status' => 0,
+                'last_payment_id' => 0,
+                'user_id' => 2,
+                'stampdate' => now(),
+                'demand_date' => $newPaymentFrom,
+                'is_deactivate' => 0,
+            ];
+        })->toArray();
+
+        // Insert data into the table
+        DB::table('swm_demands')->insert($insertData);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Demands created successfully!',
+            'data' => $insertData,
+        ], 201);
+    }
+
+}
+
+
+//////////////////////////////////////////////////////
+
+    /* public function getSpecificUserData(UserRequest $request)
+    {       
+        try {
+            $mUsers = new User();
+            // Fetch user data
+            if ($request->email) {
+                $data = $mUsers->searchByEmail($request->email);
+                if (!$data) {
+                    throw new Exception('User not found');
+                }
+            }elseif($request->mobile){
+                $data = $mUsers->searchByMobile($request->mobile);
+                if (!$data){ 
+                    throw new Exception('mobile not found');
+                }
+            }elseif($request->pan){
+                $data = $mUsers->searchByPan($request->pan);
+                if (!$data){
+                    throw new Exception('Pan Not Found');
+                }
+
+            }elseif($request->aadhar){
+                $data = $mUsers->searchByAadhar($request->aadhar);
+                if (!$data){
+                    throw new Exception('Aadhar Not Found');
+                }
+            }
+           
+
+         
+        return response()->json(['status' => true,'message' => 'Data retrieved successfully','data' => $data]);
+        }  catch (Exception $e) {
+            return response()->json(['status' => false,'message' => 'An error occurred while fetching data'], 500);
+        }
+    }
+ */
+
+
+ public function getSpecificUserData(UserRequest $request)
+    {
+        try {
+            $mUsers = new User();
+            $data = null;
+            
+            // if ($request->filled('email')) {
+            //     $data = $mUsers->searchByEmail($request->email);
+            //         if (!$data) {
+            //             throw new Exception('User not found for the provided email.');
+            //         }
+            // } elseif ($request->filled('mobile')) {
+            //     $data = $mUsers->searchByMobile($request->mobile);
+            //         if (!$data) {
+            //             throw new Exception('User not found for the provided mobile number.');
+            //         }
+            // } elseif ($request->filled('pan')) {
+            //     $data = $mUsers->searchByPan($request->pan);
+            //         if (!$data) {
+            //             throw new Exception('User not found for the provided PAN.');
+            //         }
+            // } elseif ($request->filled('aadhar')) {
+            //     $data = $mUsers->searchByAadhar($request->aadhar);
+            //         if (!$data) {
+            //             throw new Exception('User not found for the provided Aadhar.');
+            //         }
+            // } 
+
+            switch (true) {
+                
+                case $request->filled('email'):
+                    $data = $mUsers->searchByEmail($request->email);
+                        if (!$data) {
+                            throw new Exception('User not found for the provided email.');
+                        }
+                    break;
+
+                case $request->filled('mobile'):
+                    $data = $mUsers->searchByMobile($request->mobile);
+                        if (!$data) {
+                            throw new Exception('User not found for the provided mobile number.');
+                        }
+                    break;
+
+                case $request->filled('pan'):
+                    $data = $mUsers->searchByPan($request->pan);
+                        if (!$data) {
+                            throw new Exception('User not found for the provided PAN.');
+                        }
+                    break;
+
+                case $request->filled('aadhar'):
+                    $data = $mUsers->searchByAadhar($request->aadhar);
+                        if (!$data) {
+                            throw new Exception('User not found for the provided Aadhar.');
+                        }
+                    break;
+                    
+                default:
+                    throw new Exception('No Such Data Found.');
+
+            }    
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Data retrieved successfully.',
+                'data' => $data,
+            ]);
+        } 
+        
+        catch (Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 404);
+        }
+    }
