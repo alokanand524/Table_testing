@@ -133,8 +133,6 @@ class UserController extends Controller
                 throw new Exception('Invalid key provided.');
             }
 
-            
-           
             switch ($key) {
 
                 case 'email':

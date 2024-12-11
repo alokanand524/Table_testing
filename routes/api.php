@@ -43,5 +43,5 @@ Route::post('/users/update', [UserController::class, 'updateData']);
 // Route::post('/swm-demands', [SwmDemandController::class, 'store']);
 // Route::post('/getData/swm-demands', [SwmDemandController::class, 'index']);
 
-Route::post('/swm-demands/create', [SwmDemandController::class, 'createDemands']);
+Route::post('/swm-demands/generate', [SwmDemandController::class, 'createDemands']);
 

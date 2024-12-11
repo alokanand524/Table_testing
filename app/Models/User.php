@@ -28,8 +28,6 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-
-
     public function searchByUserDetails($field, $value){
 
         // $fileds = ['email', 'mobile', 'pan', 'aadhar'];
