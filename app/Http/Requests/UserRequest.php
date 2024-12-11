@@ -24,15 +24,18 @@ class UserRequest extends FormRequest
      */
     public function rules(): array
     {
-        return   [
-            'email' => 'nullable|email',
-            'mobile' => 'nullable|integer|digits:10',
-            'pan' => 'nullable|string|regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/',
-            'aadhar' => 'nullable|integer|digits:12',
-        ];    
-        
+        // return   [
+        //     'email' => 'nullable|email',
+        //     'mobile' => 'nullable|integer|digits:10',
+        //     'pan' => 'nullable|string|regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/',
+        //     'aadhar' => 'nullable|integer|digits:12',
+        // ];    
+        return [
+            'key' => 'required|string|in:email,mobile,pan,aadhar',
+            'value' => 'required', 
+        ];
 
-        
+
     }
     public function failedValidation(Validator $validator)
     {

@@ -32,11 +32,11 @@ class User extends Authenticatable
 
     public function searchByUserDetails($field, $value){
 
-        $fileds = ['email', 'mobile', 'pan', 'aadhar'];
+        // $fileds = ['email', 'mobile', 'pan', 'aadhar'];
 
-        if(!in_array($field, $fileds)){
-            throw new Exception('Search Fiels in Invalid');
-        }
+        // if(!in_array($field, $fileds)){
+        //     throw new Exception('Search Fiels in Invalid');
+        // }
 
         return self::select("*")
         ->where($field, $value)

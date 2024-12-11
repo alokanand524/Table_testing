@@ -501,3 +501,25 @@ class SwmDemandController extends Controller
             ], 404);
         }
     }
+
+
+// validation 
+
+public function withValidator(Validator $validator)
+{
+    $validator->after(function ($validator) {
+        $key = $this->input('key');
+        $value = $this->input('value');
+
+        if ($key === 'mobile' && !preg_match('/^\d{10}$/', $value)) {
+            $validator->errors()->add('value', 'The mobile number must be exactly 10 digits.');
+        }
+
+        if ($key === 'pan' && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/', $value)) {
+            $validator->errors()->add('value', 'The PAN format is invalid.');
+        }
+
+        if ($key === 'aadhar' && !preg_match('/^\d{12}$/', $value)) {
+            $validator->errors()->add('value', 'The Aadhar number must be exactly 12 digits.');
+        }
+    });

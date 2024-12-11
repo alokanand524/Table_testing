@@ -115,70 +115,59 @@ class UserController extends Controller
     }
 
     // Method to get user specific data by POST method
+  
+
     public function getSpecificUserData(UserRequest $request)
     {
         try {
+
             $mUsers = new User();
             $data = null;
+
+            // Get the key from the request data
+            $key = $request->input('key'); // This will get the 'key' from the JSON payload
+            $value = $request->input('value'); 
             
-            // if ($request->filled('email')) {
-            //     $data = $mUsers->searchByEmail($request->email);
-            //         if (!$data) {
-            //             throw new Exception('User not found for the provided email.');
-            //         }
-            // } elseif ($request->filled('mobile')) {
-            //     $data = $mUsers->searchByMobile($request->mobile);
-            //         if (!$data) {
-            //             throw new Exception('User not found for the provided mobile number.');
-            //         }
-            // } elseif ($request->filled('pan')) {
-            //     $data = $mUsers->searchByPan($request->pan);
-            //         if (!$data) {
-            //             throw new Exception('User not found for the provided PAN.');
-            //         }
-            // } elseif ($request->filled('aadhar')) {
-            //     $data = $mUsers->searchByAadhar($request->aadhar);
-            //         if (!$data) {
-            //             throw new Exception('User not found for the provided Aadhar.');
-            //         }
-            // } 
+            // Check if the key is valid
+            if (!in_array($key, ['email', 'mobile', 'pan', 'aadhar'])) {
+                throw new Exception('Invalid key provided.');
+            }
 
             
+           
+            switch ($key) {
 
-            switch (true) {
-
-                case $request->filled('email'):
-                    $data = $mUsers->searchByUserDetails('email',$request->email);
+                case 'email':
+                    $data = $mUsers->searchByUserDetails('email',  $value);
                         if (!$data) {
                             throw new Exception('User not found for the provided email.');
                         }
-                    break;
+                break;
 
-                case $request->filled('mobile'):
-                    $data = $mUsers->searchByUserDetails('mobile', $request->mobile);
+                case 'mobile':
+                    $data = $mUsers->searchByUserDetails('mobile',  $value);
                         if (!$data) {
                             throw new Exception('User not found for the provided mobile number.');
                         }
-                    break;
+                break;
 
-                case $request->filled('pan'):
-                    $data = $mUsers->searchByUserDetails('pan', $request->pan);
+                case 'pan':
+                    $data = $mUsers->searchByUserDetails('pan',  $value);
                         if (!$data) {
                             throw new Exception('User not found for the provided PAN.');
                         }
-                    break;
+                break;
 
-                case $request->filled('aadhar'):
-                    $data = $mUsers->searchByUserDetails('aadhar',$request->aadhar);
+                case 'aadhar':
+                    $data = $mUsers->searchByUserDetails('aadhar',  $value);
                         if (!$data) {
                             throw new Exception('User not found for the provided Aadhar.');
                         }
-                    break;
-                    
+                break;
+
                 default:
                     throw new Exception('No Such Data Found.');
-
-            }    
+            }
 
             return response()->json([
                 'status' => true,
@@ -194,6 +183,9 @@ class UserController extends Controller
             ], 404);
         }
     }
+
+
+
 
     // Method to update user and company data
     public function updateData(UserRequest $request)
