@@ -21,27 +21,17 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
+Route::Controllers(UserController::class)->group(function () {
 
-Route::post('/users', [UserController::class, 'insertData']);
+    Route::post('/users/create', 'insertData')->name('insertData');
+    Route::post('/users/getData',  'getAllData')->name('getAllData');
+    Route::post('/users/search', 'getSpecificUserData')->name('getSpecificUserData');
+    Route::post('/users/delete', 'deleteDataByEmail')->name('deleteDataByEmail');
+    Route::post('/users/update', 'updateData')->name('updateData');
 
-Route::post('/users/getData', [UserController::class, 'getAllData']);
-
-Route::post('/users/search', [UserController::class, 'getSpecificUserData']);
-
-// Route::delete('/users/{id}', [UserController::class, 'deleteData']);
-
-Route::post('/users/delete', [UserController::class, 'deleteDataByEmail']);
-
-Route::post('/users/update', [UserController::class, 'updateData']);
+});
 
 
-
-
-//update data 
-
-
-// Route::post('/swm-demands', [SwmDemandController::class, 'store']);
-// Route::post('/getData/swm-demands', [SwmDemandController::class, 'index']);
-
+//generate demand
 Route::post('/swm-demands/generate', [SwmDemandController::class, 'createDemands']);
 

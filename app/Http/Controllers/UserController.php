@@ -17,12 +17,12 @@ class UserController extends Controller
     {
         // Validate request data
         $validated = $request->validate([
-            'name' => 'required',
-            'email' => 'required|email',
-            'company_name' => 'required',
-            'mobile' => "required",
-            'pan' => 'required',
-            'aadhar' => 'required',
+                'name' => 'required',
+                'email' => 'required|email',
+                'company_name' => 'required',
+                'mobile' => "required",
+                'pan' => 'required',
+                'aadhar' => 'required',
         ]);
 
         try {

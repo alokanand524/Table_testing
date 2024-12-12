@@ -31,7 +31,7 @@ class UserRequest extends FormRequest
         //     'aadhar' => 'nullable|integer|digits:12',
         // ];    
         return [
-            'key' => 'required|string|in:email,mobile,pan,aadhar',
+            'key' => 'required|string|in:email,mobile,pan,aadhar',  
             'value' => 'required', 
         ];
 
