@@ -17,7 +17,7 @@ class User extends Authenticatable
         'pan',
         'aadhar',
     ];
-
+ 
     protected $hidden = [
         'password',
         'remember_token',

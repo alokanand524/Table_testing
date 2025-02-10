@@ -13,16 +13,16 @@ use Illuminate\Support\Facades\Validator;
 class UserController extends Controller
 {
     // Method to insert user and company data
-    public function insertData(Request $request)
+    /* public function insertData(Request $request)
     {
         // Validate request data
         $validated = $request->validate([
                 'name' => 'required',
                 'email' => 'required|email',
                 'company_name' => 'required',
-                'mobile' => "required",
-                'pan' => 'required',
-                'aadhar' => 'required',
+                // 'mobile' => "required",
+                // 'pan' => 'required',
+                // 'aadhar' => 'required',
         ]);
 
         try {
@@ -65,9 +65,9 @@ class UserController extends Controller
                 $user = User::create([
                     'name' => $validated['name'],
                     'email' => $validated['email'],
-                    'mobile' => $validated['mobile'],
-                    'pan' => $validated['pan'],
-                    'aadhar' => $validated['aadhar'],
+                    // 'mobile' => $validated['mobile'],
+                    // 'pan' => $validated['pan'],
+                    // 'aadhar' => $validated['aadhar'],
                 ]);
 
                 $newUserCreated = true;
@@ -97,7 +97,100 @@ class UserController extends Controller
 
             return response()->json(['status' => false,'message' => $e->getMessage()], 500);
         }
+    } */
+
+    public function insertData(Request $request)
+    {
+        // Validate request data
+        $validated = $request->validate([
+            'name' => 'required',
+            'email' => 'required|email',
+            'company_name' => 'required',
+        ]);
+
+        try {
+            // Check if the user already exists by email
+            $user = User::where('email', $validated['email'])->first();
+
+            // Variable to track if a new user was created
+            $newUserCreated = false;
+
+            if ($user) {
+                // Check if the user name matches the provided name
+                if ($user->name !== $validated['name']) {
+                    throw new Exception('ERROR: Adding New Company for existing user');
+                }
+
+                // Check if the company already exists for this user
+                $existingCompany = companies::where('user_id', $user->id)
+                    ->where('company_name', $validated['company_name'])
+                    ->first();
+
+                if ($existingCompany) {
+                    throw new Exception('User already exist');
+                }
+
+                DB::beginTransaction();
+
+                // Store user details as JSON
+                $userData = json_encode([
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ]);
+
+                // Add a new company for the existing user
+                companies::create([
+                    'user_id' => $user->id,
+                    'company_name' => $validated['company_name'],
+                    'user_data' => $userData,
+                ]);
+            } 
+            
+            else {
+                // If user does not exist, create a new user
+                $user = User::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                ]);
+
+                $newUserCreated = true;
+
+                // Store user details as JSON
+                $userData = json_encode([
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ]);
+
+                // Create company with JSON data
+                companies::create([
+                    'user_id' => $user->id,
+                    'company_name' => $validated['company_name'],
+                    'user_data' => $userData,
+                ]);
+            }
+
+            // Commit all operations
+            DB::commit();
+
+            // Prepare a success message
+            $message = $newUserCreated
+                ? 'User and company successfully created'
+                : 'New company added for the existing user';
+
+            return response()->json(['status' => true, 'message' => $message], 200);
+        } 
+        
+        catch (Exception $e) {
+            DB::rollback();
+
+            \Log::error('Error inserting data: ' . $e->getMessage());
+
+            return response()->json(['status' => false, 'message' => $e->getMessage()], 500);
+        }
     }
+
+
 
     // Method to get all data using INNER JOIN
     public function getAllData(Request $request)
@@ -228,11 +321,11 @@ class UserController extends Controller
             // Check if all provided data are the same as the existing data
             if (
                 $user->name === $request->name &&
-                $user->email === $request->email &&
+                $user->email === $request->email 
                 // $company->company_name === $request->company_name
-                $user->mobile === $request->mobile &&
-                $user->pan === $request->pan &&
-                $user->aadhar === $request->aadhar 
+                // $user->mobile === $request->mobile &&
+                // $user->pan === $request->pan &&
+                // $user->aadhar === $request->aadhar 
             ) {
                 throw new Exception('Cannot update, data already exist');
             }
@@ -252,9 +345,9 @@ class UserController extends Controller
             $user->update([
                 'name' => $request->name,
                 'email' => $request->email,
-                'mobile' => $request->mobile,
-                'pan'=> $request->pan,
-                'aadhar'=> $request->aadhar,
+                // 'mobile' => $request->mobile,
+                // 'pan'=> $request->pan,
+                // 'aadhar'=> $request->aadhar,
 
             ]);
 

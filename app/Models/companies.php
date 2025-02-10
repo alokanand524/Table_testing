@@ -11,18 +11,18 @@ class companies extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'company_name'];
+    protected $fillable = ['user_id', 'company_name' , 'user_data'];
 
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function companyLog()
-    {
-        return $this->hasMany(CompaniesLog::class);
+    // public function companyLog()
+    // {
+    //     return $this->hasMany(CompaniesLog::class);
 
-    }
+    // }
 
 
 
